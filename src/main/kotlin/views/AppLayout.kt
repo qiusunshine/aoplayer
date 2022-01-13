@@ -1,15 +1,14 @@
 package views
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.desktop.LocalAppWindow
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -18,6 +17,7 @@ import service.model.SwitchRoutes
 import themes.LightThemeColors
 import java.awt.Dimension
 
+@ExperimentalAnimationApi
 @ExperimentalFoundationApi
 @Composable
 fun AppLayout(args: Array<String>) {
@@ -25,27 +25,28 @@ fun AppLayout(args: Array<String>) {
     val setFullScreen = remember { mutableStateOf(false) }
     val showLive: MutableState<Boolean> = remember { mutableStateOf(false) }
     val switchRoutes = remember { mutableStateOf(SwitchRoutes(0, mutableListOf())) }
-
-    if (setFullScreen.value) {
-        currentWindow.makeFullscreen()
-    } else {
-        currentWindow.restore()
-    }
-    currentWindow.keyboard.setShortcut(Key.Spacebar) {
-        println("space bar pressed")
-    }
-
-    currentWindow.window.minimumSize = Dimension(600, 480)
-
     val scanning = remember { mutableStateOf(false) }
-    val modifier = Modifier
-    modifier.background(Color.Black)
+
+    LaunchedEffect(setFullScreen.value) {
+        if (setFullScreen.value) {
+            currentWindow.makeFullscreen()
+        } else {
+            currentWindow.restore()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        currentWindow.keyboard.setShortcut(Key.Spacebar) {
+            println("space bar pressed")
+        }
+        currentWindow.window.minimumSize = Dimension(600, 480)
+    }
 
     MaterialTheme(colors = LightThemeColors) {
         Column(
-            modifier = modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (!setFullScreen.value) {
+            AnimatedVisibility(visible = !setFullScreen.value, modifier = Modifier.background(Color.DarkGray)) {
                 ToolBar(switchRoutes = switchRoutes, scanning = scanning, showLive = showLive)
             }
             PlayerControl(

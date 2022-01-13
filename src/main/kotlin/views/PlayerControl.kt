@@ -1,6 +1,8 @@
 package views
 
 import KryerMediaPlayerComponent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.desktop.LocalAppWindow
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -23,6 +25,7 @@ import uk.co.caprica.vlcj.factory.discovery.strategy.OsxNativeDiscoveryStrategy
 import uk.co.caprica.vlcj.factory.discovery.strategy.WindowsNativeDiscoveryStrategy
 import utils.*
 
+@ExperimentalAnimationApi
 @ExperimentalFoundationApi
 @Composable
 fun PlayerControl(
@@ -37,15 +40,14 @@ fun PlayerControl(
         LinuxNativeDiscoveryStrategy(),
         OsxNativeDiscoveryStrategy()
     ).discover()
+
+    val scope = rememberCoroutineScope()
     val currentWindow = LocalAppWindow.current
     val showControlBar = remember { mutableStateOf(true) }
-    var inited = false
     val modifier = Modifier
     modifier.background(Color.Black)
-
     val videoPosition = remember { mutableStateOf(0f) }
     val volume = remember { mutableStateOf(100) }
-
     val playing = remember { mutableStateOf(false) }
 
     val mediaPlayerComponent =
@@ -61,13 +63,19 @@ fun PlayerControl(
                 )
             )
         }
-    mediaPlayerComponent.value.playToggleAction = { togglePlay(mediaPlayerComponent.value, playing) }
-    mediaPlayerComponent.value.seekForwardAcion = { seekForward(mediaPlayerComponent.value, playing) }
-    mediaPlayerComponent.value.seekBackWardAction = { seekBackward(mediaPlayerComponent.value, playing) }
-    mediaPlayerComponent.value.volumeUpAction = { volumeUp(mediaPlayerComponent.value) }
-    mediaPlayerComponent.value.volumeDownAction = { volumeDown(mediaPlayerComponent.value) }
 
-    val readyToPlay = remember { mutableStateOf(false) }
+    fun playAsync(url: String, vararg ops: String) {
+        try {
+            val start = System.currentTimeMillis()
+            val ok = mediaPlayerComponent.value.mediaPlayer().media().play(url, *ops)
+            val consume = System.currentTimeMillis() - start
+            Timber.d("LaunchedEffect playOK: $ok, consume: $consume")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Timber.d("LaunchedEffect play error")
+        }
+    }
+
     val playMe = { playUrl0: String ->
         if (RemoteServerHolder.playUrl != playUrl0) {
             RemoteServerHolder.playUrl = playUrl0
@@ -94,18 +102,15 @@ fun PlayerControl(
                     if (options.size > 0) {
                         Timber.d("playMe start with options")
                         val arr = options.toTypedArray()
-                        val ok = mediaPlayerComponent.value.mediaPlayer().media().play(pu, *arr)
-                        Timber.d("playOK: $ok")
+                        playAsync(pu!!, *arr)
                     } else {
                         Timber.d("playMe start without options")
-                        val ok = mediaPlayerComponent.value.mediaPlayer().media().play(pu)
-                        Timber.d("playOK: $ok")
+                        playAsync(pu!!)
                     }
                 } else {
                     Timber.d("playMe start without headers")
                     val pu = playUrl0.replace("\n", "")?.replace("\r", "")
-                    val ok = mediaPlayerComponent.value.mediaPlayer().media().play(pu)
-                    Timber.d("playOK: $ok")
+                    playAsync(pu)
                 }
             } catch (e: Exception) {
                 Timber.d("playMe error: " + e.message)
@@ -113,9 +118,15 @@ fun PlayerControl(
         }
     }
 
-    DisposableEffect(readyToPlay.value) {
-        if (readyToPlay.value && RemoteServerHolder.url == null && !inited) {
-            inited = true
+    LaunchedEffect(mediaPlayerComponent.value) {
+        mediaPlayerComponent.value.playToggleAction = { togglePlay(mediaPlayerComponent.value, playing) }
+        mediaPlayerComponent.value.seekForwardAcion = { seekForward(mediaPlayerComponent.value, playing) }
+        mediaPlayerComponent.value.seekBackWardAction = { seekBackward(mediaPlayerComponent.value, playing) }
+        mediaPlayerComponent.value.volumeUpAction = { volumeUp(mediaPlayerComponent.value) }
+        mediaPlayerComponent.value.volumeDownAction = { volumeDown(mediaPlayerComponent.value) }
+    }
+    LaunchedEffect(Unit) {
+        if (RemoteServerHolder.url == null) {
             scanning.value = true
             val remote = ConfigUtil.get("remote", "")
             if (remote.isNotEmpty()) {
@@ -144,24 +155,17 @@ fun PlayerControl(
                 }
             }.scan()
         }
-        onDispose {
-
-        }
     }
 
-    DisposableEffect(setFullScreen.value) {
+    LaunchedEffect(setFullScreen.value) {
         showControlBar.value = !setFullScreen.value
-        onDispose {
-
-        }
     }
 
-    DisposableEffect(getPlayUrl(switchRoutes)) {
+    LaunchedEffect(getPlayUrl(switchRoutes)) {
         val playUrl = getPlayUrl(switchRoutes)
         if (playUrl.isNotEmpty() && (playUrl.contains(".mp4") || playUrl.contains(".m3u8"))) {
             RemoteServerHolder.url = playUrl.replace("\n", "").replace("\r", "")
-            val ok = mediaPlayerComponent.value.mediaPlayer().media().play(RemoteServerHolder.url)
-            Timber.d("playOK: $ok")
+            playAsync(RemoteServerHolder.url!!)
         } else if (playUrl.endsWith(":52020")) {
             GlobalScope.launch(Dispatchers.IO) {
                 ConfigUtil.put("remote", playUrl)
@@ -171,9 +175,6 @@ fun PlayerControl(
                     playMe(it)
                 }
             }
-        }
-        onDispose {
-
         }
     }
 
@@ -185,13 +186,22 @@ fun PlayerControl(
                 modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                mediaPlayerComponent, readyToPlay
+                mediaPlayerComponent
             )
-            if (showLive.value) {
+
+            AnimatedVisibility(
+                visible = showLive.value,
+                modifier = Modifier.background(Color.Transparent)
+            ) {
+
                 Playlist(modifier, switchRoutes, showLive)
             }
         }
-        if (showControlBar.value && readyToPlay.value) {
+
+        AnimatedVisibility(
+            visible = showControlBar.value,
+            modifier = Modifier.background(Color.Transparent)
+        ) {
             ControlBar(
                 modifier,
                 mediaPlayerComponent,

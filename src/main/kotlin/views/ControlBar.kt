@@ -40,6 +40,7 @@ fun ControlBar(
     switchRoutes: MutableState<SwitchRoutes>
 ) {
     val showRoutes = remember { mutableStateOf(false) }
+    val showLog = remember { mutableStateOf(false) }
 
     Surface {
         if (showRoutes.value && switchRoutes.value.routes.size > 1) {
@@ -84,6 +85,9 @@ fun ControlBar(
                 }
             }
         }
+        if (showLog.value) {
+            LogDialog(showLog)
+        }
         Column(
             modifier.fillMaxWidth()
                 .padding(horizontal = 10.dp)
@@ -110,6 +114,15 @@ fun ControlBar(
                 )
 
                 Spacer(modifier.weight(1f))
+                TextButton(
+                    onClick = {
+                        showLog.value = true
+                    }, colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colors.onPrimary
+                    )
+                ) {
+                    Text(text = "日志", maxLines = 1)
+                }
                 if (switchRoutes.value.routes.size > 1) {
                     val sel = switchRoutes.value.selected + 1
                     TextButton(

@@ -28,6 +28,7 @@ dependencies {
     implementation("org.greenrobot:eventbus:3.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.4.32")
+    implementation("org.jooq:joor-java-8:0.9.14")
 }
 
 tasks.withType<KotlinCompile>() {
@@ -51,7 +52,7 @@ compose.desktop {
             windows {
                 iconFile.set(iconsRoot.resolve("icon-windows.ico"))
                 menuGroup = "XiaoMianAo"
-                exePackageVersion = "1.2.4"
+                exePackageVersion = "1.2.8"
                 // see https://wixtoolset.org/documentation/manual/v3/howtos/general/generate_guids.html
                 upgradeUuid = "18159995-d967-4CD2-8885-77BFA97CFA9F"
                 shortcut = true
